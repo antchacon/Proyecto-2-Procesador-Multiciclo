@@ -23,7 +23,7 @@ Procesador que ejecuta dos códigos, el primero es un contador de 0 a 10, y el s
 - [Memorias y formato de programa](#memorias-y-formato-de-programa)
 - [Cómo ejecutar un programa](#cómo-ejecutar-un-programa)
 - [Arquitectura de archivos](#arquitectura-de-archivos)
-
+- [Conclusiones](#conclusiones)
 
 
 
@@ -31,148 +31,197 @@ Procesador que ejecuta dos códigos, el primero es un contador de 0 a 10, y el s
 
 ## Descripción
 
-Este proyecto implementa el juego Snake en ensamblador RISC-V para el simulador Ripes.  
+Este proyecto implementa un procesador RISC-V de 32 bits con pipeline de 5 etapas, escrito en SystemVerilog, capaz de ejecutar programas almacenados en un archivo program.mem 
 
-Características principales:
+Este procesador es una evolución del procesador uniciclo, incorporando:
 
-- Área de juego lógica de `15×15` celdas.
-- Serpiente con cola de hasta 100 segmentos.
-- Manzana que aparece en posiciones pseudo-aleatorias.
-- Control con D-Pad 0 de Ripes.
-- Detección de colisión de la cabeza con la cola (pantalla roja).
-- Condición de victoria cuando la serpiente llena el mapa (pantalla verde).
+- Pipeline completo.
+- Forwarding para evitar stalls innecesarios.
+- Hazard detection.
+- Memoria de instrucciones cargada desde archivo.
+- Soporte para múltiples programas ensamblados manualmente.
+- Testbench verificador automático de salida UART.
+
+El sistema es capaz de ejecutar programas simples como contadores o rutinas de cálculo.
 
 ---
 
 ## Características Principales
 
-### Controles
+### Arquitectura
 
-El juego usa el D-Pad 0 de Ripes:
+- Pipeline de 5 etapas: IF, ID, EX, MEM, WB
+- Cumplimiento del estándar RV32I
+- Soporte para instrucciones:
+    - R-type
+    - I-type
+    - S-type
+    - B-type
+    - JAL/JALR
+    - LUI/AUIPC
+    - LOAD/STORE (byte, halfword, word)
 
-- UP → Mover hacia arriba  
-- DOWN → Mover hacia abajo  
-- LEFT → Mover hacia la izquierda  
-- RIGHT → Mover hacia la derecha  
+### Pipeline avanzado
 
-Reglas de movimiento:
+ - Forwarding.
+ - Detección de hazards
+ - Control centralizado vía control_deco.sv
 
-- No puedes devolverte en línea recta.
-  - Si vas hacia arriba, no puedes cambiar directo a abajo.
-  - Si vas hacia abajo, no puedes cambiar directo a arriba.
-  - Si vas hacia izquierda, no puedes cambiar directo a derecha.
-  - Si vas hacia derecha, no puedes cambiar directo a izquierda.
+### Memorias
 
-Esto evita que la serpiente se “autodestruya” intentando ir justo en la dirección opuesta en el mismo ciclo.
+- ROM configurable usando program.mem
+- RAM para:
+    - byte
+    - accesos de 1,2 o 4 bytes
+ 
+## Estructura del procesador
 
----
+El procesador está compuesto por 18 módulos independientes:
 
-### Objetivo del juego
-
-- Controlar la serpiente para:
-  - Comer la manzana roja que aparece en el mapa.
-  - Hacer que la serpiente crezca con cada manzana.
-- Mantenerte con vida el mayor tiempo posible sin chocar contra tu propia cola.
-
-Cada vez que se come una manzana:
-
-1. La cola aumenta de longitud.
-2. La manzana cambia de posición, evitando colocarse encima de cualquier segmento de la cola.
-3. La dificultad aumenta de forma natural hay menos espacio libre para moverte.
-
----
-
-### Condiciones de derrota
-
-Pierdes la partida cuando:
-
-- La cabeza de la serpiente choca con cualquier segmento de su cola.
-
-Cuando esto ocurre:
-
-- Toda la matriz LED se pone en rojo, indicando que perdió la partida.
-
-
- En esta versión no hay colisión con las paredes del mapa y el movimiento solamente se detiene en los límites.
-
----
-
-### Condición de victoria
-
-Ganas la partida cuando:
-
-- La serpiente llena el mapa completo o en este caso al obtener 15 leds de cola (esto para efectos de tiempo y demostrar la pantalla de victoria).
-
-Cuando esto ocurre:
-
-- Toda la matriz LED se pone en verde, indicando que ganó la partida.
+| Componente        | Archivo            | Función |
+|------------------|--------------------|---------|
+| Program Counter  | register.sv            | Guarda y actualiza el PC  |
+| Suma de PC + 4   | adder.sv               | Incremento del PC         |
+| Memoria ROM      | inst_mem.sv            | Contiene el programa      |
+| Memoria RAM      | data_mem.sv            | Memoria de datos          |
+| Banco de registros| reg_file.sv           | Registros X0-X31          |
+| ALU              | alu.sv                 | Ejecución de operaciones  |
+| Inmediatos       | imm_gen.sv             | Decodifica tipos I/S/B/J/U|
+| Control          | control_deco.sv        | Señales de control global |
+| Multiplexores    | mux_2_1.sv, mux_4_1.sv | Rutas críticas            |
+| Pipeline IF/ID   | if_id_reg.sv           | Separación de etapas      |
+| Pipeline ID/EX   | id_ex_reg.sv           | Entrada a EX              |
+| Pipeline EX/MEM  | ex_mem_reg.sv          | Salida de EX              |
+| Pipeline MEM/WB  | mem_wb_reg.sv          | Entrada a WB              |
+| Forwarding       | integrado en top.sv    | Corrige dependencias      |
+| Hazard Unit      | hazard_unit.sv         | Detecta stall/flush       |
+| TOP (CPU)        | desing.sv              | Integra todo el sistema   |
+| Testbench        | testbench.sv           | Verificación automática   |
 
 
----
+## Etapas del Pipeline
 
-## Detalles visuales
+### IF-Instruction Fetch
 
-Colores de la matriz LED:
+- Se lee PC
+- Se calcula PC + 4
+- Se trae la instrucción desde ROM
 
-- Cabeza de la serpiente: blanco (`0xFFFFFF`)
-- Cola de la serpiente: verde (`0x00FF00`)
-- Manzana: rojo (`0xFF0000`)
-- Borde del área de juego: amarillo (`0xFFFF00`)
-- Pantalla de derrota (game over): todo rojo
-- Pantalla de victoria: todo verde
+### ID - Instruction Decode
 
-Tamaño de la matriz física:
+- Se decodifica instrucción
+- Se leen rs1 y rs2 del banco de registros
+- Se genera inmediato
+- Se revisan hazards
 
-- Matriz LED de 35×25 → `875` píxeles.
-- El juego solo usa la esquina superior izquierda para el mapa lógico y el borde, esto ya que al usar toda la matriz conforme pasaba el tiempo se iba poniendo lento el juego, y en la esquina  para facilidad de la programación de centrar el cuadrado.
+### EX - Execution
 
----
+- ALU
+- Se calcula la dirección
+- Se evalúan comparaciones de branch
+- Se decide el siguiente PC
 
-## Estructura del código
+### MEM - Memory 
 
-Principales  funciones:
+- Lectura o escritura a RAM
+- Aplica byte-enable según tamaño de acceso
 
-- `main`  
-  Inicializa posiciones, dirección, longitud de la cola y genera la primera manzana. Contiene el bucle principal del juego.
+### WB - Write Back
 
-- `read_input`  
-  Lee el estado del D-Pad y actualiza la dirección (`dir`) sin permitir reversas directas.
+- Se selecciona entre:
+    - ALU result
+    - Mem data
+    - PC + 4
+    - PC + imm
+- Se escribe en rd
 
-- `move_snake`  
-  Actualiza la posición de la cabeza dentro del área jugable y guarda la posición anterior.
+## Gestión de riesgos
 
-- `update_tail_history`  
-  Desplaza el historial de posiciones de la cabeza y actualiza los arrays `last_x` y `last_y` para dibujar la cola.
+### Load-use hazard
 
-- `check_self_collision`  
-  Recorre la cola y verifica si la cabeza coincide con algún segmento. Si hay colisión, llama a `game_over`.
+Si una instrucción carga (lw, lb, ...) y la siguiente usa ese registro:
 
-- `handle_apple`  
-  Comprueba si la cabeza está en la misma posición que la manzana. Si es así:
-  - Actualiza la semilla pseudo-aleatoria.
-  - Calcula una nueva posición para la manzana, evitando la cola.
-  - Incrementa `tail_len` hasta un máximo.
+lw     x5, 0(x1)
 
-- `spawn_apple`  
-  Genera la manzana inicial en una posición pseudo-aleatoria.
+addi   x6, x5, 4 <--- debe esperar 1 ciclo
 
-- `clear_matrix`  
-  Apaga todos los LEDs de la matriz.
+La hazard unit inserta 1 stall.
 
-- `draw_head`, `draw_tail`, `draw_apple`, `draw_border`  
-  Dibuja en la matriz LED la cabeza, la cola, la manzana y el borde del mapa.
+### Branch hazard
 
-- `check_win_condition`  
-  Revisa si la longitud de la cola alcanza el valor de victoria y, en ese caso, llama a `game_win`.
+beq x1, x2, label
 
-- `game_over`, `game_win`  
-  Llenan toda la matriz de rojo o verde y se quedan en un bucle infinito al finalizar.
+Se limpia IF/ID (flush)
 
-- `delay`  
-  Pequeño retardo por software que controla la velocidad del juego.  
-  Puedes ajustar la constante inicial para hacerlo más rápido o más lento.
+### Forwarding 
 
----
+Evita stalls innecesarios:
+
+- MEM --> EX
+- WB  --> EX
+
+## Memorias y formato de programa
+
+El archivo program.mem contiene instrucciones hex RV32I, una por línea.
+
+Ejemplo:
+
+0x000100B7
+0x04408093
+0x04500113
+
+Admite varios programas mediante:
+
+- Bloques comentados /*...*/
+- Elegir manualmente cuál dejar activo
+
+## Cómo ejecutar un programa
+
+1. Editar program.mem
+2. Colocar solo las instrucciones del programa deseado
+3. Ejecutar:
+   iverilog -g2012 desing.sv testbench.sv
+4. El testbench mostrará la salida "UART"
+
+## Arquitectura de archivos 
+
+/src
+
+    desing.sv
+    mux_2_1.sv
+    mux_4_1.sv
+    adder.sv
+    register.sv
+    reg_file.sv
+    alu.sv
+    imm_gen.sv
+    inst_mem.sv
+    data_mem.sv
+    control_deco.sv
+    if_id_reg.sv
+    id_ex_reg.sv
+    ex_mem_reg.sv
+    mem_wb_reg.sv
+    hazard_unit.sv
+
+/test
+
+     testbench.sv
+
+program.mem
+
+README.md 
+
+## Conclusiones
+
+Este proyecto demuestra:
+
+- Comprensión de la arquitectura RISC-V RV32I
+- Diseño de un procesador pipeline funcional en SystemVerilog
+- Implementación de forwarding y hazard
+- Capacidad de ejecutar programas
+- Integración con ROM externa vía program.mem
+- Un testbench capaz de validar automáticamente la ejecución
 
 ## Imagenes del juego 
 
