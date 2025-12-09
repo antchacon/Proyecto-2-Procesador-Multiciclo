@@ -223,33 +223,12 @@ Este proyecto demuestra:
 - Integración con ROM externa vía program.mem
 - Un testbench capaz de validar automáticamente la ejecución
 
-## Imagenes del juego 
+## Imagen de referencia del procesador 
 
-- **D-Pad**
-
-
-   ![Dpad](https://github.com/user-attachments/assets/8e0c76c3-f28c-4ceb-bb6c-3fd952b91534)
+- **Procesador multiciclo con pipeline de 5 etapas**
 
 
-- **Matriz**
+   ![Procesador multiciclo](https://github.com/antchacon/Proyecto-2-Procesador-Multiciclo/blob/main/Multiciclo%20con%20pipeline%20de%205%20etapas.png?raw=true)
 
 
-   ![matrizleds](https://github.com/user-attachments/assets/fd32873b-4cc6-460d-ae7a-72c83eb2cd24)
 
-
-- **Juego**
-
-
-   ![juego](https://github.com/user-attachments/assets/1737a0ad-882e-40e4-8eb0-a8fd430eaf4a)
-
-- **Pantalla de Derrota**
-
-
-   ![losescreen](https://github.com/user-attachments/assets/a61ea425-79c7-4a4c-972f-177e3cdd6ada)
-
-- **Pantalla de Victoria**
-
-
-   ![winscreen](https://github.com/user-attachments/assets/7d0e9811-6290-4fc7-aefa-cf2eae8ee650)
-
----
