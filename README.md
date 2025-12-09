@@ -23,6 +23,7 @@ Procesador que ejecuta dos códigos, el primero es un contador de 0 a 10, y el s
 - [Memorias y formato de programa](#memorias-y-formato-de-programa)
 - [Cómo ejecutar un programa](#cómo-ejecutar-un-programa)
 - [Arquitectura de archivos](#arquitectura-de-archivos)
+- [Imagen de referencia del procesador](#imagen-de-referencia-del-procesador)
 - [Conclusiones](#conclusiones)
 
 
@@ -212,6 +213,14 @@ program.mem
 
 README.md 
 
+## Imagen de referencia del procesador 
+
+- **Procesador multiciclo con pipeline de 5 etapas**
+
+
+   ![Procesador multiciclo](https://github.com/antchacon/Proyecto-2-Procesador-Multiciclo/blob/main/Multiciclo%20con%20pipeline%20de%205%20etapas.png?raw=true)
+
+
 ## Conclusiones
 
 Este proyecto demuestra:
@@ -222,13 +231,6 @@ Este proyecto demuestra:
 - Capacidad de ejecutar programas
 - Integración con ROM externa vía program.mem
 - Un testbench capaz de validar automáticamente la ejecución
-
-## Imagen de referencia del procesador 
-
-- **Procesador multiciclo con pipeline de 5 etapas**
-
-
-   ![Procesador multiciclo](https://github.com/antchacon/Proyecto-2-Procesador-Multiciclo/blob/main/Multiciclo%20con%20pipeline%20de%205%20etapas.png?raw=true)
 
 
 
